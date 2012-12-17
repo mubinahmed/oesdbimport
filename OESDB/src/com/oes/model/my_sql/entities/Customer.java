@@ -6,10 +6,11 @@ import javax.persistence.Id;
 import javax.persistence.Table;
 
 import com.mbi.oes.db.utils.FormatUtil;
+import com.mbi.oes.db.utils.StringPool;
 
 
 @Entity
-@Table(name = "Customer")
+@Table(name = "customer")
 public class Customer {
   
 	@Id
@@ -69,14 +70,14 @@ public class Customer {
   }
 
   @javax.persistence.Column(name="UnaccountedAmount",length=12)
-  private Float unaccountedamount;
+  private Double unaccountedamount;
 
-  public void setUnaccountedamount(Float unaccountedamount) {
+  public void setUnaccountedamount(double unaccountedamount) {
     this.unaccountedamount = unaccountedamount;
   }
 
-  public Double getUnaccountedamount() {
-    return FormatUtil.formatPrecision(unaccountedamount);
+  public double getUnaccountedamount() {
+    return FormatUtil.formatPrecision((double)unaccountedamount);
   }
   
   @javax.persistence.Column(name="AveragePayDays",length=12)
@@ -91,13 +92,13 @@ public class Customer {
   }
 
   @javax.persistence.Column(name="Balance",length=12)
-  private Float balance;
+  private Double balance;
 
-  public void setBalance(Float balance) {
+  public void setBalance(double balance) {
     this.balance = balance;
   }
 
-  public Double getBalance() {
+  public double getBalance() {
 	if(balance == null) {
 		return 0.0;
 	} else{
@@ -203,6 +204,9 @@ public class Customer {
   }
 
   public String getCustomername() {
+	  if(customername == null) {
+		  customername = StringPool.BLANK;
+	  }
     return customername;
   }
 
@@ -251,7 +255,7 @@ public class Customer {
     return fax;
   }
 
-  @javax.persistence.Column(name="FirstName",length=50)
+  @javax.persistence.Column(name="FirstName",length=60)
   private String firstname;
 
   public void setFirstname(String firstname) {

@@ -26,6 +26,7 @@ import org.hibernate.Session;
 
 import com.mbi.oes.db.controls.Label;
 import com.mbi.oes.db.utils.ImportSession;
+import com.mbi.oes.db.utils.OES;
 import com.mbi.oes.db.utils.StringPool;
 import com.mbi.oes.listeners.PageChangedListener;
 import com.oes.db.model.util.BasicDAO;
@@ -288,7 +289,7 @@ public class ReviewAndFinishImportScreen extends GenericDataImportScreen{
 			int result = session.createSQLQuery(dataLoadInTempQuery).executeUpdate();
 			logger_.info("Result: "+result);
 			
-			handleWarehouseIfItems(session);
+			handleWarehouse(session);
 		} catch (Exception e) {
 			String exceptionMessage = ExceptionUtils.getRootCauseMessage(e);
 			logger_.info(exceptionMessage);
@@ -374,7 +375,7 @@ public class ReviewAndFinishImportScreen extends GenericDataImportScreen{
 			int result = session.createSQLQuery(dataLoadQuery).executeUpdate();
 			logger_.info("Result: "+result);
 			
-			handleWarehouseIfItems(session);
+			postImportAction(session);
 		} catch (Exception e) {
 			String exceptionMessage = ExceptionUtils.getRootCauseMessage(e);
 			logger_.info(exceptionMessage);
@@ -388,8 +389,70 @@ public class ReviewAndFinishImportScreen extends GenericDataImportScreen{
 		ImportSession.set("LOAD_TIME", (end_time - start_time));
 		return true;
 	}
-	private void handleWarehouseIfItems(Session session) {
+	private void postImportAction(Session session) {
 		if(dataLoadQuery.indexOf(" TABLE items") != -1) {
+			handleWarehouse(session);
+		} else if(dataLoadQuery.indexOf(" TABLE orders ") != -1) {
+			handleOrdersHead(session);
+		} else if(dataLoadQuery.indexOf(" TABLE orderdetails ") != -1) {
+			handleOrderDetails(session);
+		} else if(dataLoadQuery.indexOf(" TABLE customer ") != -1) {
+			handleCustomer(session);
+		} 
+		
+		System.out.println();
+		
+	}
+	private void handleCustomer(Session session) {
+		System.out.println("Updating datecreated");
+		session.createSQLQuery("UPDATE customer SET datecreated = NOW() WHERE datecreated IS NULL").executeUpdate();
+	}
+	private void handleOrdersHead(Session session) {
+	
+		/*
+		mysql> DELETE FROM orderslog;
+		mysql> insert into orderslog (counterman, customercode, netamount, ordernumber,
+				tax, orderdate, ordercreationdate, status, shipdate, deliverytype, shippingaddre
+				ss, shipzip) SELECT counterman, customercode, netamount, ordernumber, tax, order
+				date, orderdate, orderstatus, shiptime, deliverytype, concat(shipname, '\n', sol
+				daddr1, '\n', soldaddr2, '\n', soldaddr3), shipzip from orders;
+				*/
+		session.createSQLQuery("UPDATE orders SET orderstatus = '"+OES.OrderStatus.OPEN+"' WHERE orderstatus = 'O'").executeUpdate();
+		session.createSQLQuery("UPDATE orders SET orderstatus = '"+OES.OrderStatus.SHIPPED+"' WHERE orderstatus = 'S'").executeUpdate();
+		session.createSQLQuery("DELETE FROM orderslog").executeUpdate();
+		String insertQuery = "insert into orderslog (counterman, customercode, netamount, ordernumber, tax," +
+				" orderdate, ordercreationdate, status, shipdate, deliverytype," +
+				" shippingaddress, shipzip) SELECT counterman, customercode," +
+				" netamount, ordernumber, tax, orderdate, orderdate, orderstatus," +
+				" shiptime, deliverytype, concat(shipname, '\n', soldaddr1, '\n'," +
+				" soldaddr2, '\n', soldaddr3), shipzip from orders";
+		session.createSQLQuery(insertQuery).executeUpdate();
+	}
+	
+	private void handleOrderDetails(Session session) {
+		session.createSQLQuery("UPDATE orderdetails SET itemstatus = 'S' WHERE quantityshipped = quantityordered").executeUpdate();
+		session.createSQLQuery("UPDATE orderdetails SET itemstatus = 'O' WHERE quantityshipped = 0").executeUpdate();
+		session.createSQLQuery("UPDATE orderdetails SET itemstatus = 'I' WHERE quantityinvoice = quantityordered").executeUpdate();
+		session.createSQLQuery("UPDATE orderdetails SET itemstatus = 'Z' WHERE itemstatus IS NULL").executeUpdate();
+		
+		/*
+		 *mysql> insert into itemhistory(customercode, itemcode, itemdescription, listpric
+e, orderdate, ordernumber, priceentered, quantityinvoice, quantityordered, quant
+ityshipped, tax) select customercode, itemcode, itemdescription, listprice, orde
+rdate, ordernumber, priceentered, quantityinvoice, quantityordered, quantityship
+ped, tax from orderdetails;
+		 */
+		session.createSQLQuery("DELETE FROM itemhistory").executeUpdate();
+		String insertQuery = "insert into itemhistory(customercode, itemcode, itemdescription," +
+				" listprice, orderdate, ordernumber, priceentered, quantityinvoice, quantityordered," +
+				" quantityshipped, tax) select customercode, itemcode, itemdescription, listprice," +
+				" orderdate, ordernumber, priceentered, quantityinvoice, quantityordered," +
+				" quantityshipped, tax from orderdetails";
+		session.createSQLQuery(insertQuery).executeUpdate();
+	}
+	
+	private void handleWarehouse(Session session) {
+		
 			//mysql> insert into warehouseitemdetails (warehouseid, itemcode, quantity, onhand
 			//, committed) select 1, productid, 10, 10, 10 from items;
 			
@@ -410,7 +473,6 @@ public class ReviewAndFinishImportScreen extends GenericDataImportScreen{
 			String updateItemsQuery = "UPDATE items SET importqty = 0";
 			result = session.createSQLQuery(updateItemsQuery).executeUpdate();
 			logger_.info("Warehouse updated: "+result);
-		}
 	}
 	@Override
 	protected void checkSubclass() {

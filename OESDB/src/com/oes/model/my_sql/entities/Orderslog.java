@@ -106,7 +106,7 @@ public class Orderslog {
     return tax;
   }
 
-  @javax.persistence.Column(name="ShippingAddress",length=50)
+  @javax.persistence.Column(name="ShippingAddress",length=256)
   private String shippingaddress;
   public void setShippingAddress(String shippingaddress) {
 		this.shippingaddress = shippingaddress;
